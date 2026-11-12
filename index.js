@@ -39,7 +39,7 @@ const verifyToken = async(req, res, next) => {
   if (!token) {
     res.send.status(401).send({ msg: "Unauthorized!" });
   }
-  const JWKS = createRemoteJWKSet(new URL("http://localhost:3000/api/auth/jwks"))
+  const JWKS = createRemoteJWKSet(new URL(`${process.env.CLIENT_URL}/api/auth/jwks`))
  
  
  
@@ -65,7 +65,7 @@ app.post("/booking", async (req, res) => {
   res.send(result);
 });
 
-app.get("/my-bookings/:email", async (req, res) => {
+app.get("/my-bookings/:email",  async (req, res) => {
   try {
     const email = decodeURIComponent(req.params.email);
 
@@ -94,7 +94,7 @@ app.get("/destinations/:id", verifyToken, async (req, res) => {
   res.send(result);
 });
 
-app.patch("/destinations/:id", async (req, res) => {
+app.patch("/destinations/:id", verifyToken, async (req, res) => {
   const id = req.params.id;
   const data = req.body;
   const result = await destinationCollection.updateOne(
@@ -104,7 +104,7 @@ app.patch("/destinations/:id", async (req, res) => {
   res.send(result);
 });
 
-app.delete("/destinations/:id", async (req, res) => {
+app.delete("/destinations/:id",verifyToken, async (req, res) => {
   try {
     const id = req.params.id;
 
@@ -135,7 +135,7 @@ app.delete("/destinations/:id", async (req, res) => {
   }
 });
 
-app.delete("/booking/:id", async (req, res) => {
+app.delete("/booking/:id",verifyToken, async (req, res) => {
   try {
     const id = req.params.id;
 
