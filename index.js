@@ -2,6 +2,7 @@ import express from "express";
 import { MongoClient, ObjectId } from "mongodb";
 import "dotenv/config";
 import cors from "cors";
+import { createRemoteJWKSet, jwtVerify } from "jose";
 const app = express();
 const PORT = process.env.PORT || 8000;
 
@@ -20,24 +21,49 @@ export async function connectToMongoDB() {
   }
 }
 const mongoClient = await connectToMongoDB();
-const db= mongoClient.db("wanderlust")
+const db = mongoClient.db("wanderlust");
 const destinationCollection = db.collection("destinations");
-const bookingCollection = db.collection("bookings")
+const bookingCollection = db.collection("bookings");
+
+const verifyToken = async(req, res, next) => {
+  const authHeader = req.headers.authorization;
+  console.log(authHeader);
+
+  if (!authHeader) {
+    res.send.status(401).send({ msg: "Unauthorized!" });
+  }
+
+
+  const token = authHeader.split(" ")[1]
+
+  if (!token) {
+    res.send.status(401).send({ msg: "Unauthorized!" });
+  }
+  const JWKS = createRemoteJWKSet(new URL("http://localhost:3000/api/auth/jwks"))
+ 
+ 
  
 
-app.post("/add-destination",async (req, res) => {
-    const data = req.body;
-    const result =await destinationCollection.insertOne(data)
-    
+  try {
+     const { payload } = await jwtVerify(token, JWKS, )
+      next();
+  } catch (error) {
+     res.send.status(500).send({ msg: "server error!" });
+  }
+};
+
+app.post("/add-destination",verifyToken, async (req, res) => {
+  const data = req.body;
+  const result = await destinationCollection.insertOne(data);
+
   res.send(result);
 });
 
-app.post("/booking",async(req,res)=>{
-    const data = req.body
-    const result= await bookingCollection.insertOne(data)
-    res.send(result)
-
-})
+app.post("/booking", async (req, res) => {
+  const data = req.body;
+  const result = await bookingCollection.insertOne(data);
+  res.send(result);
+});
 
 app.get("/my-bookings/:email", async (req, res) => {
   try {
@@ -57,27 +83,28 @@ app.get("/my-bookings/:email", async (req, res) => {
   }
 });
 
+app.get("/destinations", async (req, res) => {
+  const result = await destinationCollection.find().toArray();
+  res.send(result);
+});
 
-app.get("/destinations",async (req,res)=>{
-    const result = await destinationCollection.find().toArray()
-    res.send(result)
-})
+app.get("/destinations/:id", verifyToken, async (req, res) => {
+  const id = req.params.id;
+  const result = await destinationCollection.findOne({ _id: new ObjectId(id) });
+  res.send(result);
+});
 
-app.get("/destinations/:id",async (req,res)=>{
-    const id = req.params.id
-    const result = await destinationCollection.findOne({_id:new ObjectId(id)})
-    res.send(result)
-})
+app.patch("/destinations/:id", async (req, res) => {
+  const id = req.params.id;
+  const data = req.body;
+  const result = await destinationCollection.updateOne(
+    { _id: new ObjectId(id) },
+    { $set: data },
+  );
+  res.send(result);
+});
 
-app.patch("/destinations/:id",async (req,res)=>{
-    const id = req.params.id
-    const data = req.body
-    const result = await destinationCollection.updateOne({_id:new ObjectId(id)},{$set:data})
-    res.send(result)
-})
-
-
-   app.delete("/destinations/:id", async (req, res) => {
+app.delete("/destinations/:id", async (req, res) => {
   try {
     const id = req.params.id;
 
@@ -133,7 +160,6 @@ app.delete("/booking/:id", async (req, res) => {
     });
   }
 });
-
 
 app.get("/", (req, res) => {
   res.send("server is running");
